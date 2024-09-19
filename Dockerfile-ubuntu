@@ -1,0 +1,15 @@
+FROM debian:latest
+
+RUN apt update && \
+    apt install -y aria2 && \
+    apt clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Add the root dir
+COPY root/ /
+
+# Replace this with your own 
+pierdat URI /path/to/file
+
+# The files will seed when your image is running
+CMD ["/bin/bash"]
