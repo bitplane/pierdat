@@ -1,0 +1,95 @@
+#!/bin/sh
+
+show_help() {
+    echo "Usage: pierdat [OPTIONS] URI /path/to/destination"
+    echo
+    echo "Options:"
+    echo "  -h, --help            Show this help message and exit"
+    echo "  -l, --list-backends   List available backends and exit"
+    echo
+    echo "Example:"
+    echo "  pierdat magnet:URI /path/to/destination"
+}
+
+# Save the script's directory
+HERE=$(dirname "$(readlink -f "$0")")
+DATFILE="$HERE"/../../etc/pierdat.dat
+
+detect_backends() {
+    BACKENDS=""
+
+    for checkScript in "$HERE/pierdat-check-"*; do
+        backend=$(basename "$checkScript" | cut -d'-' -f3-)
+
+        getScript="$HERE/pierdat-get-$backend"
+
+        if [ -x "$checkScript" ] && [ -x "$getScript" ]; then
+            BACKENDS="$BACKENDS $backend"
+        fi
+    done
+
+    echo "$BACKENDS"
+}
+
+valid_backends() {
+    VALID=""
+    for backend in $(detect_backends); do
+        "$HERE"/pierdat-check-"$backend" "$1" > /dev/null && \
+            VALID="$VALID $backend"
+    done
+
+    if [ -z "$VALID" ]; then
+        return 1
+    else
+        echo "$VALID"
+    fi
+}
+
+# Parse command-line arguments
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        -h|--help)
+            show_help
+            exit 0
+            ;;
+        -l|--list-backends)
+            detect_backends
+            exit 0
+            ;;
+        *)
+            if [ -z "$URI" ]; then
+                URI="$1"
+            elif [ -z "$DEST_PATH" ]; then
+                DEST_PATH="$1"
+            else
+                echo "Unknown parameter: $1"
+                show_help
+                exit 1
+            fi
+            ;;
+    esac
+    shift
+done
+
+# Check if URI and destination path are set
+if [ -z "$URI" ] || [ -z "$DEST_PATH" ]; then
+    echo "Error: URI and destination path are required." >&2
+    show_help
+    exit 1
+fi
+
+BACKENDS=$(valid_backends "$URI")
+echo "Possible backends: $BACKENDS"
+
+SUCCESSFUL=""
+
+for backend in $BACKENDS; do
+    echo "Trying backend $backend..."
+    "$HERE"/pierdat-get-"$backend" "$URI" "$DEST_PATH" >> "$DATFILE" && \
+        SUCCESSFUL="$SUCCESSFUL $backend"
+done
+
+if [ -z "$SUCCESSFUL" ]; then
+    echo "Error: No backends were successful."
+    exit 1
+fi

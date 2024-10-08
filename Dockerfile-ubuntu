@@ -1,15 +1,24 @@
-FROM debian:latest
+FROM ubuntu:latest
+
+# Select your back-end client. Currently only aria2 is supported.
+ARG CLIENT='aria2' # transmission-cli rtorrent deluge-console
 
 RUN apt update && \
-    apt install -y aria2 && \
+    apt install -y ${CLIENT} && \
     apt clean && \
     rm -rf /var/lib/apt/lists/*
 
 # Add the root dir
 COPY root/ /
 
-# Replace this with your own 
-pierdat URI /path/to/file
+# Replace this next line with a call to pierdat, one call per data source. For
+# URI, currently only magnet links and torrent files are supported.
 
-# The files will seed when your image is running
-CMD ["/bin/bash"]
+## RUN pierdat URI /path/to/destination
+
+# Docker entrypoint runs pierdatd in the background 
+# and then execs the CMD
+ENTRYPOINT [ "/entrypoint.sh" ]
+
+# Which in this example defaults to a shell
+CMD [ "/bin/bash" ]
