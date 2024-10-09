@@ -7,9 +7,8 @@ Status: work in progress.
 
 ## todo
 
-* write daemon
-* finish aria2 backend
 * write some tests
+* write some more backends 
 
 ## Usage
 
@@ -23,6 +22,13 @@ Status: work in progress.
 * Run it, it'll seed the data to other people who are building it.
 
 See [Dockerfile-ubuntu](./Dockerfile-ubuntu) for an example.
+
+If you used `RUN --network=host pierdat` like in the example, you'll need to
+build it with `--allow=network.host` set.
+
+```sh
+docker buildx build --allow=network.host -t mashup -f Dockerfile-ubuntu .
+```
 
 ## How it works
 

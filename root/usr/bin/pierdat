@@ -13,7 +13,8 @@ show_help() {
 
 # Save the script's directory
 HERE=$(dirname "$(readlink -f "$0")")
-DATFILE="$HERE"/../../etc/pierdat.dat
+ROOT=$(readlink -f "$HERE"/../..)
+COMMANDS="$ROOT"/etc/pier.dat
 
 detect_backends() {
     BACKENDS=""
@@ -85,7 +86,7 @@ SUCCESSFUL=""
 
 for backend in $BACKENDS; do
     echo "Trying backend $backend..."
-    "$HERE"/pierdat-get-"$backend" "$URI" "$DEST_PATH" >> "$DATFILE" && \
+    sh -x "$HERE"/pierdat-get-"$backend" "$URI" "$DEST_PATH" >> "$COMMANDS" && \
         SUCCESSFUL="$SUCCESSFUL $backend"
 done
 

@@ -1,7 +1,7 @@
 FROM ubuntu:latest
 
 # Select your back-end client. Currently only aria2 is supported.
-ARG CLIENT='aria2' # transmission-cli rtorrent deluge-console
+ARG CLIENT='aria2'
 
 RUN apt update && \
     apt install -y ${CLIENT} && \
@@ -11,10 +11,11 @@ RUN apt update && \
 # Add the root dir
 COPY root/ /
 
-# Replace this next line with a call to pierdat, one call per data source. For
-# URI, currently only magnet links and torrent files are supported.
+# Replace this next line with your own torrent or magnet link. Use one call per
+# data source. If you run with --network=host you can have inbound connections,
+# but you'll need to build with --allow=network.host
 
-## RUN pierdat URI /path/to/destination
+RUN --network=host pierdat "magnet:?xt=urn:btih:a88fda5954e89178c372716a6a78b8180ed4dad3&dn=The+WIRED+CD+-+Rip.+Sample.+Mash.+Share&tr=udp%3A%2F%2Fexplodie.org%3A6969&tr=udp%3A%2F%2Ftracker.coppersurfer.tk%3A6969&tr=udp%3A%2F%2Ftracker.empire-js.us%3A1337&tr=udp%3A%2F%2Ftracker.leechers-paradise.org%3A6969&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337&tr=wss%3A%2F%2Ftracker.btorrent.xyz&tr=wss%3A%2F%2Ftracker.fastcast.nz&tr=wss%3A%2F%2Ftracker.openwebtorrent.com&ws=https%3A%2F%2Fwebtorrent.io%2Ftorrents%2F&xs=https%3A%2F%2Fwebtorrent.io%2Ftorrents%2Fwired-cd.torrent" /data/cd
 
 # Docker entrypoint runs pierdatd in the background 
 # and then execs the CMD

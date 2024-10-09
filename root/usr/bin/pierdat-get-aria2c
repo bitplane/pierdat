@@ -1,0 +1,7 @@
+#!/bin/sh
+
+set -e
+
+aria2c $1 --dir=$2 --seed-time=0 >&2
+echo aria2c $1 --dir=$2 --seed-ratio=0.0 --check-integrity=true
+

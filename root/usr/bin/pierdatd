@@ -1,0 +1,79 @@
+#!/bin/sh
+
+HERE=$(dirname "$(readlink -f "$0")")
+ROOT="$HERE"/../..
+
+COMMANDS="$ROOT/etc/pier.dat"
+LOG="$ROOT/var/log/pierdat.log"
+
+terminate() {
+    pids="$CHILD_PIDS"
+
+    if [ -n "$pids" ]; then
+        echo "TERMinating child processes: $pids"
+        kill $pids
+
+        # Wait up to 10 seconds for processes to terminate
+        for i in $(seq 1 10); do
+            sleep 1
+            # Check if any processes are still running
+            still_running_pids=""
+            for pid in $pids; do
+                if kill -0 $pid 2>/dev/null; then
+                    still_running_pids="$still_running_pids $pid"
+                fi
+            done
+            pids="$still_running_pids"
+            if [ -z "$pids" ]; then
+                echo "All child processes have terminated."
+                return 0
+            fi
+        done
+
+        echo "TERMinating group, since $pids are still running."
+        kill -TERM -- -$$ 2>/dev/null
+    fi
+}
+
+
+seed_forever() {
+    if [ ! -f "$COMMANDS" ]; then
+        echo "$COMMANDS not found."
+        return 1
+    fi
+
+    echo "Starting seeding processes from $COMMANDS..."
+
+    # Initialize a variable to hold child PIDs
+    CHILD_PIDS=""
+
+    # Read each line from the data file and execute it
+    while IFS= read -r cmd || [ -n "$cmd" ]; do
+
+        cmd="${cmd#"${cmd%%[![:space:]]*}"}"
+        cmd="${cmd%"${cmd##*[![:space:]]}"}"
+
+        # Skip empty lines and comments
+        [ -z "$cmd" ] && continue
+        [ "${cmd#\#}" != "$cmd" ] && continue
+
+        echo "Seeding: $cmd"
+
+        # Start the command directly and capture its PID
+        $cmd >> "$LOG" 2>&1 &
+        pid=$!
+
+        # Add the PID to the list of child PIDs
+        CHILD_PIDS="$CHILD_PIDS $pid"
+    done < "$COMMANDS"
+
+    export CHILD_PIDS
+
+    wait
+}
+
+
+# Clean up child processes on exit
+trap terminate INT TERM QUIT
+
+seed_forever
