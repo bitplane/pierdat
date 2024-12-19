@@ -1,0 +1,25 @@
+FROM ubuntu:latest
+
+# in this example we've got aria2c installed and we're getting data from a
+# magnet link that has no tracker info so it relies on the DHT.
+
+RUN apt update && \
+    apt install -y aria2 && \
+    apt clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Add the root dir
+COPY root/ /
+
+# Use one pierdat call per data source.
+# If you run with --network=host you can have inbound connections, but you'll 
+# need to build with --allow=network.host
+
+RUN --network=host pierdat "magnet:?xt=urn:btih:699B35C69340BE68A17520807D660ED0E483F16D&dn=Nintendo%2064%20Roms%20Complete%20Collection&tr=udp%3A%2F%2Ftracker.skynetcloud.site%3A6969%2Fannounce&tr=udp%3A%2F%2Ftracker.torrent.eu.org%3A451%2Fannounce&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337%2Fannounce" /data/games
+
+# This entrypoint runs pierdatd in the background and then executes the CMD,
+# which is your program.
+ENTRYPOINT [ "/entrypoint.sh" ]
+
+# In this example, it defaults to a shell
+CMD [ "/bin/bash" ]

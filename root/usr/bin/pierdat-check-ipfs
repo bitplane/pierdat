@@ -1,0 +1,9 @@
+#!/bin/sh
+set -e
+
+if [ $1 == ipfs://* ] || [ $1 == ipns://* ]; then
+    # ensure ipfs is installed and running
+    ipfs swarm peers > /dev/null
+else
+  exit 1
+fi

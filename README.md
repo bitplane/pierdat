@@ -3,12 +3,16 @@
 Docker containers and VMs that serve their own data. Peer to peer, or pier to
 pier I guess.
 
-Status: work in progress.
+Status: proof of concept, not battle tested and likely very insecure.
 
 ## todo
 
-* write some tests
-* write some more backends 
+* cross network seeding
+* finish ipfs
+* hypercore
+* e2dk
+* web
+* ...
 
 ## Usage
 
@@ -21,13 +25,20 @@ Status: work in progress.
 * Build it, it'll get the data from seeds as it builds.
 * Run it, it'll seed the data to other people who are building it.
 
-See [Dockerfile-ubuntu](./Dockerfile-ubuntu) for an example.
+See the examples:
 
-If you used `RUN --network=host pierdat` like in the example, you'll need to
-build it with `--allow=network.host` set.
+* [bittorrent](./examples/Dockerfile-bittorrent) -
+  download a torrent using aria2c
+* [ipfs](./examples/Dockerfile-ipfs) -
+  use ipfs to serve a file
+* [multi seed](./examples/Dockerfile-multi) -
+  download from the web, fall back to bittorrent, host on IPFS
+
+When `RUN --network=host pierdat` is used, the image needs to be built with the
+`--allow=network.host` option set. Example:
 
 ```sh
-docker buildx build --allow=network.host -t mashup -f Dockerfile-ubuntu .
+docker buildx build --allow=network.host -t mashup -f ./examples/Dockerfile-torrent .
 ```
 
 ## How it works

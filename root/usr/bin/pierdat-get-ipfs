@@ -1,0 +1,8 @@
+#!/bin/sh
+set -e
+
+url=$1
+dest=$2
+
+ipfs get "$url" -o "$dest"
+ipfs pin add "$url"

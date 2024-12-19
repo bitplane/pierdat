@@ -1,25 +1,25 @@
 FROM ubuntu:latest
 
-# Select your back-end client. Currently only aria2 is supported.
-ARG CLIENT='aria2'
+# in this example we've got aria2c installed and we're getting data from a
+# magnet link.
 
 RUN apt update && \
-    apt install -y ${CLIENT} && \
+    apt install -y aria2 && \
     apt clean && \
     rm -rf /var/lib/apt/lists/*
 
 # Add the root dir
 COPY root/ /
 
-# Replace this next line with your own torrent or magnet link. Use one call per
-# data source. If you run with --network=host you can have inbound connections,
-# but you'll need to build with --allow=network.host
+# Use one pierdat call per data source.
+# If you run with --network=host you can have inbound connections, but you'll 
+# need to build with --allow=network.host
 
 RUN --network=host pierdat "magnet:?xt=urn:btih:a88fda5954e89178c372716a6a78b8180ed4dad3&dn=The+WIRED+CD+-+Rip.+Sample.+Mash.+Share&tr=udp%3A%2F%2Fexplodie.org%3A6969&tr=udp%3A%2F%2Ftracker.coppersurfer.tk%3A6969&tr=udp%3A%2F%2Ftracker.empire-js.us%3A1337&tr=udp%3A%2F%2Ftracker.leechers-paradise.org%3A6969&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337&tr=wss%3A%2F%2Ftracker.btorrent.xyz&tr=wss%3A%2F%2Ftracker.fastcast.nz&tr=wss%3A%2F%2Ftracker.openwebtorrent.com&ws=https%3A%2F%2Fwebtorrent.io%2Ftorrents%2F&xs=https%3A%2F%2Fwebtorrent.io%2Ftorrents%2Fwired-cd.torrent" /data/cd
 
-# Docker entrypoint runs pierdatd in the background 
-# and then execs the CMD
+# This entrypoint runs pierdatd in the background and then executes the CMD,
+# which is your program.
 ENTRYPOINT [ "/entrypoint.sh" ]
 
-# Which in this example defaults to a shell
+# In this example, it defaults to a shell
 CMD [ "/bin/bash" ]
