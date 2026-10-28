@@ -5,8 +5,8 @@ set -e
 HERE=$(dirname "$(readlink -f "$0")")
 # Validate and serialize before starting a download.
 cmd=$("$HERE/pierdat-command" aria2c "$1" "--dir=$2" \
-    --seed-ratio=0.0 --check-integrity=true)
+    --seed-ratio=0.0 --check-integrity=true --bt-load-saved-metadata=true)
 
-aria2c "$1" "--dir=$2" --seed-time=0 >&2
+aria2c "$1" "--dir=$2" --seed-time=0 --bt-save-metadata=true >&2
 printf '%s\n' "$cmd"
 

@@ -45,13 +45,14 @@ class PierdatTests(unittest.TestCase):
         result = self.run_command(str(self.bin / "pierdat-get-aria2c"), uri, dest)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(json.loads(capture.read_text()),
-                         [uri, f"--dir={dest}", "--seed-time=0"])
+                         [uri, f"--dir={dest}", "--seed-time=0",
+                          "--bt-save-metadata=true"])
         self.assertEqual(len(result.stdout.splitlines()), 1)
         seeded = self.run_command("sh", "-c", "exec " + result.stdout)
         self.assertEqual(seeded.returncode, 0, seeded.stderr)
         self.assertEqual(json.loads(capture.read_text()),
                          [uri, f"--dir={dest}", "--seed-ratio=0.0",
-                          "--check-integrity=true"])
+                          "--check-integrity=true", "--bt-load-saved-metadata=true"])
 
     def test_serializer_rejects_line_breaks(self):
         for value in ["a\nb", "a\rb"]:
