@@ -1,9 +1,10 @@
 #!/bin/sh
 set -e
 
-if [ $1 == ipfs://* ] || [ $1 == ipns://* ]; then
-    # ensure ipfs is installed and running
-    ipfs swarm peers > /dev/null
-else
-  exit 1
-fi
+case "${1-}" in
+    ipfs://?*|ipns://?*) ;;
+    *) exit 1 ;;
+esac
+command -v ipfs >/dev/null 2>&1 || exit 1
+# The build must have an initialized repository and a running local daemon.
+ipfs swarm peers >/dev/null

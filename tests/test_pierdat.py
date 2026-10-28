@@ -146,6 +146,43 @@ class PierdatTests(unittest.TestCase):
         time.sleep(0.1)
         self.assertEqual(attempts.read_text(), count)
 
+    def test_ipfs_registers_daemon_and_keeps_diagnostics_out_of_config(self):
+        repo = self.work / "ipfs repo"
+        repo.mkdir()
+        self.env["IPFS_PATH"] = str(repo)
+        calls = self.work / "ipfs-calls"
+        self.script(self.mocks / "ipfs", "#!/bin/sh\n"
+                    f"printf '%s\\n' \"$*\" >> '{calls}'\n"
+                    "case $1 in\n"
+                    "resolve) echo /ipfs/resolved ;;\n"
+                    "*) echo diagnostic ;;\n"
+                    "esac\n")
+        for uri in ["ipfs://example", "ipns://example"]:
+            check = self.run_command(str(self.bin / "pierdat-check-ipfs"), uri)
+            self.assertEqual(check.returncode, 0, check.stderr)
+        check = self.run_command(str(self.bin / "pierdat-check-ipfs"), "https://example")
+        self.assertNotEqual(check.returncode, 0)
+        result = self.run_command(str(self.bin / "pierdat-get-ipfs"),
+                                  "ipns://example", "/data/my files")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("diagnostic", result.stdout)
+        self.assertIn("get /ipfs/resolved -o /data/my files", calls.read_text())
+        self.assertIn("pin add /ipfs/resolved", calls.read_text())
+        self.assertEqual(self.run_command("sh", "-c", result.stdout).returncode, 0)
+        self.assertTrue(calls.read_text().endswith("daemon\n"))
+
+    def test_shared_daemon_command_runs_once(self):
+        starts = self.work / "starts"
+        seed = self.script(self.work / "seed", "#!/bin/sh\n"
+                           f"echo start >> '{starts}'\nexec sleep 60\n")
+        self.config.write_text(f"{seed}\n{seed}\n")
+        daemon = self.start_daemon()
+        self.wait_for(starts.exists)
+        time.sleep(0.1)
+        self.assertEqual(starts.read_text(), "start\n")
+        daemon.terminate()
+        daemon.communicate(timeout=9)
+
 
 if __name__ == "__main__":
     unittest.main()

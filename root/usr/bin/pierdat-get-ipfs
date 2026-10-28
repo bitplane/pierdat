@@ -1,8 +1,18 @@
 #!/bin/sh
 set -e
 
-url=$1
+HERE=$(dirname "$(readlink -f "$0")")
+case "$1" in
+    ipfs://?*) url="/ipfs/${1#ipfs://}" ;;
+    ipns://?*) url="/ipns/${1#ipns://}" ;;
+    *) exit 1 ;;
+esac
 dest=$2
+repo=$(readlink -f "${IPFS_PATH:-$HOME/.ipfs}")
+cmd=$("$HERE/pierdat-command" env "IPFS_PATH=$repo" ipfs daemon)
+# Resolve once so an IPNS update cannot change the content between get and pin.
+resolved=$(ipfs resolve "$url")
 
-ipfs get "$url" -o "$dest"
-ipfs pin add "$url"
+ipfs get "$resolved" -o "$dest" >&2
+ipfs pin add "$resolved" >&2
+printf '%s\n' "$cmd"

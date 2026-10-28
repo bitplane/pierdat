@@ -71,11 +71,21 @@ seed_forever() {
     # Fail at startup rather than endlessly restarting on a log-open failure.
     : >> "$LOG" || return 1
     printf '%s\n' "Starting seeding processes from $COMMANDS..."
+    seen='
+'
     while IFS= read -r cmd || [ -n "$cmd" ]; do
         cmd="${cmd#"${cmd%%[![:space:]]*}"}"
         cmd="${cmd%"${cmd##*[![:space:]]}"}"
         [ -z "$cmd" ] && continue
         [ "${cmd#\#}" != "$cmd" ] && continue
+        # Multiple downloads may share one daemon (for example, an IPFS repo).
+        case "$seen" in
+            *"
+$cmd
+"*) continue ;;
+        esac
+        seen="$seen$cmd
+"
         printf '%s\n' "Seeding: $cmd"
         supervise "$cmd" &
         CHILD_PIDS="$CHILD_PIDS $!"
