@@ -1,8 +1,10 @@
 import os
 from pathlib import Path
 import shutil
+import signal
 import subprocess
 import tempfile
+import time
 import unittest
 
 
@@ -75,6 +77,55 @@ class PierdatTests(unittest.TestCase):
         result = self.run_command(str(self.bin / "pierdat"), "test://x", "/data")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.config.read_text(), "seed-command\n")
+
+    def wait_for(self, predicate, timeout=5):
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if predicate():
+                return
+            time.sleep(0.05)
+        self.fail("Timed out waiting for child state")
+
+    def start_daemon(self):
+        process = subprocess.Popen([str(self.bin / "pierdatd")], env=self.env,
+                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                   text=True, start_new_session=True)
+        def cleanup():
+            if process.poll() is None:
+                process.terminate()
+            try:
+                process.communicate(timeout=9)
+            except subprocess.TimeoutExpired:
+                os.killpg(process.pid, signal.SIGKILL)
+                process.communicate()
+        self.addCleanup(cleanup)
+        return process
+
+    def test_shutdown_kills_stubborn_seeder_group(self):
+        pidfile = self.work / "pids"
+        child = self.script(self.work / "stubborn", "#!/usr/bin/python3\n"
+                            "import os, signal, subprocess, time\n"
+                            "signal.signal(signal.SIGTERM, signal.SIG_IGN)\n"
+                            "child = subprocess.Popen(['sleep', '60'])\n"
+                            f"open({str(pidfile)!r}, 'w').write(str(os.getpid()) + ' ' + str(child.pid))\n"
+                            "while True: time.sleep(1)\n")
+        self.config.write_text(str(child) + "\n")
+        daemon = self.start_daemon()
+        self.wait_for(lambda: pidfile.exists() and len(pidfile.read_text().split()) == 2)
+        pids = [int(pid) for pid in pidfile.read_text().split()]
+        def cleanup_group():
+            try:
+                os.killpg(pids[0], signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+        self.addCleanup(cleanup_group)
+        daemon.terminate()
+        stdout, stderr = daemon.communicate(timeout=9)
+        self.assertEqual(daemon.returncode, 0, stdout + stderr)
+        for pid in pids:
+            stat = Path(f"/proc/{pid}/stat")
+            self.assertTrue(not stat.exists() or stat.read_text().split()[2] == "Z",
+                            f"Seeder process {pid} survived shutdown")
 
 
 if __name__ == "__main__":

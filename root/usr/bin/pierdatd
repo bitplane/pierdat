@@ -6,33 +6,33 @@ ROOT="$HERE"/../..
 COMMANDS="$ROOT/etc/pier.dat"
 LOG="$ROOT/var/log/pierdat.log"
 
+# Each seeder owns a session, so shutdown also reaches its descendants.
+command -v setsid >/dev/null 2>&1 || {
+    printf '%s\n' 'pierdatd requires setsid (util-linux or BusyBox).' >&2
+    exit 1
+}
+
 terminate() {
-    pids="$CHILD_PIDS"
+    trap '' HUP INT TERM QUIT
+    for pid in $CHILD_PIDS; do
+        kill -TERM "-$pid" 2>/dev/null || :
+    done
 
-    if [ -n "$pids" ]; then
-        echo "TERMinating child processes: $pids"
-        kill $pids
-
-        # Wait up to 10 seconds for processes to terminate
-        for i in $(seq 1 10); do
-            sleep 1
-            # Check if any processes are still running
-            still_running_pids=""
-            for pid in $pids; do
-                if kill -0 $pid 2>/dev/null; then
-                    still_running_pids="$still_running_pids $pid"
-                fi
-            done
-            pids="$still_running_pids"
-            if [ -z "$pids" ]; then
-                echo "All child processes have terminated."
-                return 0
-            fi
+    remaining=5
+    while [ "$remaining" -gt 0 ]; do
+        running=
+        for pid in $CHILD_PIDS; do
+            kill -0 "-$pid" 2>/dev/null && running=yes
         done
+        [ -n "$running" ] || break
+        sleep 1
+        remaining=$((remaining - 1))
+    done
 
-        echo "TERMinating group, since $pids are still running."
-        kill -TERM -- -$$ 2>/dev/null
-    fi
+    for pid in $CHILD_PIDS; do
+        kill -KILL "-$pid" 2>/dev/null || :
+        wait "$pid" 2>/dev/null || :
+    done
 }
 
 
@@ -60,7 +60,7 @@ seed_forever() {
         echo "Seeding: $cmd"
 
         # Start the command directly and capture its PID
-        sh -c "exec $cmd" >> "$LOG" 2>&1 &
+        setsid sh -c "exec $cmd" >> "$LOG" 2>&1 &
         pid=$!
 
         # Add the PID to the list of child PIDs
@@ -74,6 +74,7 @@ seed_forever() {
 
 
 # Clean up child processes on exit
-trap terminate INT TERM QUIT
+trap terminate 0
+trap 'exit 0' HUP INT TERM QUIT
 
 seed_forever
