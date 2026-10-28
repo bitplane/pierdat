@@ -1,0 +1,21 @@
+#!/bin/sh
+# Serialize one command as a single, shell-quoted configuration line.
+set -e
+
+for arg do
+    case "$arg" in
+        *'
+'*|*"$(printf '\r')"*)
+            printf '%s\n' 'Command arguments must not contain line breaks.' >&2
+            exit 1
+            ;;
+    esac
+done
+
+separator=
+for arg do
+    quoted=$(printf '%s' "$arg" | sed "s/'/'\\\\''/g")
+    printf "%s'%s'" "$separator" "$quoted"
+    separator=' '
+done
+printf '\n'

@@ -60,7 +60,7 @@ seed_forever() {
         echo "Seeding: $cmd"
 
         # Start the command directly and capture its PID
-        $cmd >> "$LOG" 2>&1 &
+        sh -c "exec $cmd" >> "$LOG" 2>&1 &
         pid=$!
 
         # Add the PID to the list of child PIDs

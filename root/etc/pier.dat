@@ -1,2 +1,4 @@
 # This file contains commands executed by `pierdatd`
 # You can manually add your own if you like
+# Each non-comment line is a trusted shell command. Quote arguments containing
+# spaces or shell metacharacters. Backends should use pierdat-command to emit it.
