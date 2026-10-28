@@ -16,7 +16,6 @@ PATH=/sbin:/usr/sbin:/bin:/usr/bin
 DESC="Pierdat daemon"
 NAME=pierdatd
 DAEMON=/usr/bin/$NAME
-DAEMON_ARGS=""
 PIDFILE=/var/run/$NAME.pid
 SCRIPTNAME=/etc/init.d/$NAME
 LOGFILE=/var/log/$NAME.log
@@ -25,16 +24,18 @@ LOGFILE=/var/log/$NAME.log
 [ -x "$DAEMON" ] || exit 0
 
 # Load the VERBOSE setting and other rcS variables
+# shellcheck source=/dev/null
 . /lib/init/vars.sh
 
 # Import LSB log_* functions
+# shellcheck source=/dev/null
 . /lib/lsb/init-functions
 
 # start the daemon/service
 do_start() {
     log_daemon_msg "Starting $DESC" "$NAME"
-    start-stop-daemon --start --quiet --background --pidfile "$PIDFILE" --make-pidfile \
-        --exec "$DAEMON" -- $DAEMON_ARGS >> "$LOGFILE" 2>&1
+    start-stop-daemon --start --quiet --oknodo --background --pidfile "$PIDFILE" --make-pidfile \
+        --exec "$DAEMON" >> "$LOGFILE" 2>&1
     status=$?
     log_end_msg $status
     return $status
@@ -43,9 +44,11 @@ do_start() {
 # stop the daemon/service
 do_stop() {
     log_daemon_msg "Stopping $DESC" "$NAME"
-    start-stop-daemon --stop --quiet --pidfile "$PIDFILE" --retry 10
+    start-stop-daemon --stop --quiet --oknodo --pidfile "$PIDFILE" --retry TERM/10/KILL/2
     status=$?
-    [ -e "$PIDFILE" ] && rm -f "$PIDFILE"
+    if [ "$status" -eq 0 ]; then
+        rm -f "$PIDFILE"
+    fi
     log_end_msg $status
     return $status
 }
@@ -58,7 +61,7 @@ case "$1" in
         do_stop
         ;;
     restart|force-reload|reload)
-        do_stop
+        do_stop || exit "$?"
         sleep 1
         do_start
         ;;
@@ -71,4 +74,4 @@ case "$1" in
         ;;
 esac
 
-exit 0
+exit "$?"

@@ -183,6 +183,30 @@ class PierdatTests(unittest.TestCase):
         daemon.terminate()
         daemon.communicate(timeout=9)
 
+    def test_init_script_reports_failures_and_preserves_pidfile(self):
+        original = self.root / "etc/init.d/pierdatd"
+        self.assertTrue(os.access(original, os.X_OK))
+        pidfile = self.work / "service.pid"
+        pidfile.write_text("12345\n")
+        calls = self.work / "service-calls"
+        self.script(self.mocks / "start-stop-daemon", "#!/bin/sh\n"
+                    f"echo called >> '{calls}'\nexit 3\n")
+        library = self.work / "init-functions"
+        library.write_text("log_daemon_msg() { :; }\nlog_end_msg() { :; }\n")
+        script = original.read_text()
+        script = script.replace("PATH=/sbin:/usr/sbin:/bin:/usr/bin", ":")
+        script = script.replace("DAEMON=/usr/bin/$NAME", f"DAEMON='{self.bin / 'pierdatd'}'")
+        script = script.replace("PIDFILE=/var/run/$NAME.pid", f"PIDFILE='{pidfile}'")
+        script = script.replace("LOGFILE=/var/log/$NAME.log", f"LOGFILE='{self.work / 'service.log'}'")
+        script = script.replace(". /lib/init/vars.sh", ":")
+        script = script.replace(". /lib/lsb/init-functions", f". '{library}'")
+        service = self.script(self.work / "service", script)
+        for action in ["start", "stop", "restart"]:
+            result = self.run_command(str(service), action)
+            self.assertEqual(result.returncode, 3, result.stderr)
+            self.assertTrue(pidfile.exists())
+        self.assertEqual(len(calls.read_text().splitlines()), 3)
+
 
 if __name__ == "__main__":
     unittest.main()
