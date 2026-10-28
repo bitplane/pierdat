@@ -70,6 +70,12 @@ class PierdatTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(self.config.read_text(), "# existing\n")
 
+    def test_backend_uses_its_shebang(self):
+        self.backend('#!/usr/bin/python3\nprint("seed-command")\n')
+        result = self.run_command(str(self.bin / "pierdat"), "test://x", "/data")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.config.read_text(), "seed-command\n")
+
 
 if __name__ == "__main__":
     unittest.main()

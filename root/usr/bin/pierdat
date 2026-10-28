@@ -89,7 +89,7 @@ trap 'exit 1' HUP INT TERM
 
 for backend in $BACKENDS; do
     echo "Trying backend $backend..."
-    if sh -x "$HERE"/pierdat-get-"$backend" "$URI" "$DEST_PATH" > "$OUTPUT"; then
+    if "$HERE"/pierdat-get-"$backend" "$URI" "$DEST_PATH" > "$OUTPUT"; then
         cat "$OUTPUT" >> "$COMMANDS" || exit 1
         SUCCESSFUL="$SUCCESSFUL $backend"
     fi
