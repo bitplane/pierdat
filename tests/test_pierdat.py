@@ -57,6 +57,19 @@ class PierdatTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertEqual(result.stdout, "")
 
+    def backend(self, body):
+        for path in self.bin.glob("pierdat-check-*"):
+            path.unlink()
+        self.script(self.bin / "pierdat-check-test", "#!/bin/sh\nexit 0\n")
+        self.script(self.bin / "pierdat-get-test", body)
+
+    def test_failed_backend_does_not_change_config(self):
+        self.backend("#!/bin/sh\necho unintended-command\nexit 1\n")
+        self.config.write_text("# existing\n")
+        result = self.run_command(str(self.bin / "pierdat"), "test://x", "/data")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(self.config.read_text(), "# existing\n")
+
 
 if __name__ == "__main__":
     unittest.main()

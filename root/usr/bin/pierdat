@@ -83,11 +83,16 @@ BACKENDS=$(valid_backends "$URI")
 echo "Possible backends: $BACKENDS"
 
 SUCCESSFUL=""
+OUTPUT=$(mktemp "${TMPDIR:-/tmp}/pierdat.XXXXXX") || exit 1
+trap 'rm -f "$OUTPUT"' 0
+trap 'exit 1' HUP INT TERM
 
 for backend in $BACKENDS; do
     echo "Trying backend $backend..."
-    sh -x "$HERE"/pierdat-get-"$backend" "$URI" "$DEST_PATH" >> "$COMMANDS" && \
+    if sh -x "$HERE"/pierdat-get-"$backend" "$URI" "$DEST_PATH" > "$OUTPUT"; then
+        cat "$OUTPUT" >> "$COMMANDS" || exit 1
         SUCCESSFUL="$SUCCESSFUL $backend"
+    fi
 done
 
 if [ -z "$SUCCESSFUL" ]; then
