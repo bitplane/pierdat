@@ -127,6 +127,24 @@ class PierdatTests(unittest.TestCase):
             self.assertTrue(not stat.exists() or stat.read_text().split()[2] == "Z",
                             f"Seeder process {pid} survived shutdown")
 
+    def test_failed_seeder_restarts_without_restarting_healthy_seeder(self):
+        attempts = self.work / "attempts"
+        healthy_starts = self.work / "healthy"
+        failing = self.script(self.work / "failing", "#!/bin/sh\n"
+                              f"echo attempt >> '{attempts}'\nexit 1\n")
+        healthy = self.script(self.work / "healthy-seed", "#!/bin/sh\n"
+                              f"echo start >> '{healthy_starts}'\nexec sleep 60\n")
+        self.config.write_text(f"{failing}\n{healthy}\n")
+        daemon = self.start_daemon()
+        self.wait_for(lambda: attempts.exists() and len(attempts.read_text().splitlines()) >= 2)
+        self.assertIsNone(daemon.poll())
+        self.assertEqual(healthy_starts.read_text(), "start\n")
+        daemon.terminate()
+        daemon.communicate(timeout=9)
+        count = attempts.read_text()
+        time.sleep(0.1)
+        self.assertEqual(attempts.read_text(), count)
+
 
 if __name__ == "__main__":
     unittest.main()

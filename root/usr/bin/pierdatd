@@ -2,79 +2,88 @@
 
 HERE=$(dirname "$(readlink -f "$0")")
 ROOT="$HERE"/../..
-
 COMMANDS="$ROOT/etc/pier.dat"
 LOG="$ROOT/var/log/pierdat.log"
 
-# Each seeder owns a session, so shutdown also reaches its descendants.
 command -v setsid >/dev/null 2>&1 || {
     printf '%s\n' 'pierdatd requires setsid (util-linux or BusyBox).' >&2
     exit 1
 }
 
-terminate() {
-    trap '' HUP INT TERM QUIT
-    for pid in $CHILD_PIDS; do
-        kill -TERM "-$pid" 2>/dev/null || :
-    done
-
+# Called inside a supervisor. Each seeder owns a separate session.
+stop_seed() {
+    [ -n "$SEED_PID" ] || return 0
+    kill -TERM "-$SEED_PID" 2>/dev/null || :
     remaining=5
     while [ "$remaining" -gt 0 ]; do
-        running=
-        for pid in $CHILD_PIDS; do
-            kill -0 "-$pid" 2>/dev/null && running=yes
-        done
-        [ -n "$running" ] || break
+        kill -0 "-$SEED_PID" 2>/dev/null || break
         sleep 1
         remaining=$((remaining - 1))
     done
+    kill -KILL "-$SEED_PID" 2>/dev/null || :
+    wait "$SEED_PID" 2>/dev/null || :
+    SEED_PID=
+}
 
+stop_supervisor() {
+    trap '' HUP INT TERM QUIT
+    if [ -n "$DELAY_PID" ]; then
+        kill "$DELAY_PID" 2>/dev/null || :
+        wait "$DELAY_PID" 2>/dev/null || :
+    fi
+    stop_seed
+}
+
+supervise() {
+    SEED_PID=
+    DELAY_PID=
+    trap stop_supervisor 0
+    trap 'exit 0' HUP INT TERM QUIT
+    while :; do
+        setsid sh -c "exec $1" >> "$LOG" 2>&1 &
+        SEED_PID=$!
+        wait "$SEED_PID" || :
+        # Clean up any descendants left behind before restarting.
+        stop_seed
+        printf '%s\n' "Seeder exited; restarting in 2 seconds: $1" >&2
+        sleep 2 &
+        DELAY_PID=$!
+        wait "$DELAY_PID" || :
+        DELAY_PID=
+    done
+}
+
+terminate() {
+    trap '' HUP INT TERM QUIT
     for pid in $CHILD_PIDS; do
-        kill -KILL "-$pid" 2>/dev/null || :
+        kill -TERM "$pid" 2>/dev/null || :
+    done
+    for pid in $CHILD_PIDS; do
         wait "$pid" 2>/dev/null || :
     done
 }
 
-
 seed_forever() {
     if [ ! -f "$COMMANDS" ]; then
-        echo "$COMMANDS not found."
+        printf '%s\n' "$COMMANDS not found." >&2
         return 1
     fi
-
-    echo "Starting seeding processes from $COMMANDS..."
-
-    # Initialize a variable to hold child PIDs
-    CHILD_PIDS=""
-
-    # Read each line from the data file and execute it
+    # Fail at startup rather than endlessly restarting on a log-open failure.
+    : >> "$LOG" || return 1
+    printf '%s\n' "Starting seeding processes from $COMMANDS..."
     while IFS= read -r cmd || [ -n "$cmd" ]; do
-
         cmd="${cmd#"${cmd%%[![:space:]]*}"}"
         cmd="${cmd%"${cmd##*[![:space:]]}"}"
-
-        # Skip empty lines and comments
         [ -z "$cmd" ] && continue
         [ "${cmd#\#}" != "$cmd" ] && continue
-
-        echo "Seeding: $cmd"
-
-        # Start the command directly and capture its PID
-        setsid sh -c "exec $cmd" >> "$LOG" 2>&1 &
-        pid=$!
-
-        # Add the PID to the list of child PIDs
-        CHILD_PIDS="$CHILD_PIDS $pid"
+        printf '%s\n' "Seeding: $cmd"
+        supervise "$cmd" &
+        CHILD_PIDS="$CHILD_PIDS $!"
     done < "$COMMANDS"
-
-    export CHILD_PIDS
-
     wait
 }
 
-
-# Clean up child processes on exit
+CHILD_PIDS=
 trap terminate 0
 trap 'exit 0' HUP INT TERM QUIT
-
 seed_forever
